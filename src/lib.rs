@@ -1,3 +1,5 @@
+mod array_list;
+
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
