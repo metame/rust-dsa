@@ -14,7 +14,7 @@ export default class ArrayList<T> {
     prepend(item: T): void {}
     insertAt(item: T, idx: number): void {}
     append(item: T): void {}
-    TODO: remove(item: T): T | undefined {}
+    remove(item: T): T | undefined {}
     get(idx: number): T | undefined {}
     removeAt(idx: number): T | undefined {}
 }
@@ -55,6 +55,7 @@ impl<T: Debug + Default + Clone + PartialEq> ArrayList<T> {
         self.length = self.length + 1;
     }
 
+    // TODO: handle 0 elements case
     pub fn pop(&mut self) -> T {
         let tail = self.length - 1;
         let item = self.inner[tail].clone();
@@ -68,7 +69,7 @@ impl<T: Debug + Default + Clone + PartialEq> ArrayList<T> {
         if index < self.length {
             let item = self.inner[index].clone();
             for i in index..self.length {
-                self.inner[i] = self.inner[i+1].clone();
+                self.inner[i] = self.inner[i + 1].clone();
             }
             self.length = self.length - 1;
             Some(item)
@@ -99,8 +100,8 @@ impl<T: Debug + Default + Clone + PartialEq> ArrayList<T> {
         if self.inner.len() == self.length {
             self.grow_inner();
         }
-        for i in ((index+1)..=self.length).rev() {
-            self.inner[i] = self.inner[i-1].clone();
+        for i in ((index + 1)..=self.length).rev() {
+            self.inner[i] = self.inner[i - 1].clone();
         }
         self.inner[index] = item;
         self.length = self.length + 1;

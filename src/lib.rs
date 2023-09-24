@@ -1,4 +1,5 @@
 mod array_list;
+mod vec;
 
 pub fn add(left: usize, right: usize) -> usize {
     left + right
