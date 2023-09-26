@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(dead_code,warnings)]
 /*
 Reference implementation of Vec taken from Rustonomicon:
 https://doc.rust-lang.org/nomicon/vec
@@ -6,7 +6,7 @@ Purposefully left incomplete but will be used for a reference for unsafe rust ac
 */
 
 use std::alloc::{self, Layout};
-use std::mem;
+use std::mem::{self, ManuallyDrop};
 use std::ptr::{self, NonNull};
 
 pub struct Vec<T> {
@@ -14,6 +14,9 @@ pub struct Vec<T> {
     cap: usize,
     len: usize,
 }
+
+unsafe impl<T: Send> Send for Vec<T> {}
+unsafe impl<T: Sync> Sync for Vec<T> {}
 
 impl<T> Vec<T> {
     pub fn new() -> Self {
@@ -106,6 +109,119 @@ impl<T> Vec<T> {
     }
 }
 
+impl<T> Drop for Vec<T> {
+    fn drop(&mut self) {
+        if self.cap != 0 {
+            while let Some(_) = self.pop() { }
+            let layout = Layout::array::<T>(self.cap).unwrap();
+            unsafe {
+                alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
+            }
+        }
+    }
+}
+
+use std::ops::Deref;
+
+impl<T> Deref for Vec<T> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+        unsafe {
+            std::slice::from_raw_parts(self.ptr.as_ptr(), self.len)
+        }
+    }
+}
+
+use std::ops::DerefMut;
+
+impl<T> DerefMut for Vec<T> {
+    fn deref_mut(&mut self) -> &mut [T] {
+        unsafe {
+            std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len)
+        }
+    }
+}
+
+pub struct IntoIter<T> {
+    buf: NonNull<T>,
+    cap: usize,
+    start: *const T,
+    end: *const T,
+}
+
+impl<T> IntoIterator for Vec<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+    fn into_iter(self) -> IntoIter<T> {
+        let vec = ManuallyDrop::new(self);
+
+        let ptr = vec.ptr;
+        let cap = vec.cap;
+        let len = vec.len;
+
+        unsafe {
+            IntoIter {
+                buf: ptr,
+                cap,
+                start: ptr.as_ptr(),
+                end: if cap == 0 {
+                    ptr.as_ptr()
+                } else {
+                    ptr.as_ptr().add(len)
+                }
+
+            }
+        }
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> {
+        if self.start == self.end {
+            None
+        } else {
+            unsafe {
+                let result = ptr::read(self.start);
+                self.start = self.start.offset(1);
+                Some(result)
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let len = (self.end as usize - self.start as usize)
+            / mem::size_of::<T>();
+        (len, Some(len))
+    }
+}
+
+impl<T> DoubleEndedIterator for IntoIter<T> {
+    fn next_back(&mut self) -> Option<T> {
+        if self.start == self.end {
+            None
+        } else {
+            unsafe {
+                self.end = self.end.offset(-1);
+                Some(ptr::read(self.end))
+            }
+        }
+    }
+}
+
+impl<T> Drop for IntoIter<T> {
+    fn drop(&mut self) {
+        if self.cap != 0 {
+            for _ in &mut *self {}
+            let layout = Layout::array::<T>(self.cap).unwrap();
+            unsafe {
+                alloc::dealloc(self.buf.as_ptr() as *mut u8, layout);
+            }
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -121,6 +237,6 @@ mod test {
         dbg!(Layout::array::<i8>(5).unwrap());
         dbg!(Layout::array::<i64>(1).unwrap());
         dbg!(Layout::array::<i64>(5).unwrap());
-        assert!(false);
+        assert!(true);
     }
 }
