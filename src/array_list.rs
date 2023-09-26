@@ -55,14 +55,14 @@ impl<T: Debug + Default + Clone + PartialEq> ArrayList<T> {
         self.length = self.length + 1;
     }
 
-    // TODO: handle 0 elements case
-    pub fn pop(&mut self) -> T {
+    pub fn pop(&mut self) -> Option<T> {
+        if self.length == 0 { return None; }
         let tail = self.length - 1;
         let item = self.inner[tail].clone();
         println!("removing {item:?} from {self:?}");
         self.inner[tail] = T::default();
         self.length = tail;
-        item
+        Some(item)
     }
 
     pub fn remove_at(&mut self, index: usize) -> Option<T> {
@@ -120,6 +120,7 @@ mod tests {
     #[test]
     fn array_list_works() {
         let mut l = ArrayList::<i32>::new();
+        assert_eq!(None, l.pop());
         l.append(1);
         l.append(2);
         l.append(3);
@@ -128,7 +129,7 @@ mod tests {
         l.append(-1);
         assert_eq!(Some(&5), l.get(4));
         let item = l.pop();
-        assert_eq!(-1, item);
+        assert_eq!(Some(-1), item);
         assert_eq!(5, l.length);
         assert_eq!(Some(&3), l.get(2));
         assert_eq!(None, l.get(l.length));
