@@ -1,4 +1,5 @@
 mod array_list;
+mod linked_list;
 mod stack;
 mod vec;
 
