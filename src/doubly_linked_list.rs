@@ -10,7 +10,8 @@
  * pop_back
  * get
  */
-use std::cell::{Ref, RefCell};
+use std::cell::RefCell;
+use std::ops::Deref;
 use std::rc::Rc;
 
 type Link<T> = Rc<RefCell<Node<T>>>;
@@ -21,6 +22,7 @@ pub struct DubLinkedList<T> {
     len: usize,
 }
 
+#[derive(Clone)]
 struct Node<T> {
     val: T,
     prev: Option<Link<T>>,
@@ -74,6 +76,7 @@ impl<T> DubLinkedList<T> {
 
         self.len -= 1;
         self.head = new_head;
+        // this is our problem, figure out why we still have references to head
         let n = match Rc::try_unwrap(head) {
             Ok(node) => node,
             Err(_) => panic!("we did bad thing in pop_front, how dare you!"),
@@ -82,20 +85,21 @@ impl<T> DubLinkedList<T> {
         Some(v)
     }
 
-    pub fn get(&self, index: usize) -> Option<T> where T: Clone {
+    pub fn get(&self, index: usize) -> Option<T>
+    where
+        T: Clone,
+    {
         if index >= self.len {
             return None;
         }
-        let mut link = self.head.as_ref().unwrap();
+        let mut node = self.head.as_ref().unwrap().borrow().deref().clone();
         for _ in 1..=index {
-            let r = Rc::clone(&link);
-            let b = r.borrow();
-            let n = b.next.as_ref();
+            let n = node.next.as_ref();
             let o = n.unwrap();
-            let next_link = o;
-            link = next_link;
+            let next_node = o.borrow().deref().clone();
+            node = next_node;
         }
-        Some(link.borrow().val.clone())
+        Some(node.val.clone())
     }
 }
 
@@ -112,9 +116,9 @@ mod tests {
         l.push_front(-2);
         l.push_front(4123);
         assert_eq!(3, l.len);
-        assert_eq!(Some(&200), l.get(2));
-        assert_eq!(Some(&-2), l.get(1));
-        assert_eq!(Some(&4123), l.get(0));
+        assert_eq!(Some(200), l.get(2));
+        assert_eq!(Some(-2), l.get(1));
+        assert_eq!(Some(4123), l.get(0));
         assert_eq!(Some(4123), l.pop_front());
         assert_eq!(Some(-2), l.pop_front());
         assert_eq!(Some(200), l.pop_front());
