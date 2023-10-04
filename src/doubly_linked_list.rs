@@ -11,6 +11,7 @@
  * get
  */
 use std::cell::RefCell;
+use std::fmt;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -22,6 +23,12 @@ pub struct DubLinkedList<T> {
     len: usize,
 }
 
+impl<T: fmt::Debug> fmt::Debug for DubLinkedList<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "DubLL {{ tail: {:?}, len: {:?} }}", self.tail, self.len)
+    }
+}
+
 #[derive(Clone)]
 struct Node<T> {
     val: T,
@@ -29,7 +36,13 @@ struct Node<T> {
     next: Option<Link<T>>,
 }
 
-impl<T> DubLinkedList<T> {
+impl<T: fmt::Debug> fmt::Debug for Node<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Node {{ val: {:?}, prev: {:?}}}", self.val, self.prev)
+    }
+}
+
+impl<T: fmt::Debug> DubLinkedList<T> {
     pub fn new() -> DubLinkedList<T> {
         DubLinkedList {
             head: None,
@@ -63,12 +76,38 @@ impl<T> DubLinkedList<T> {
         }
     }
 
+    pub fn push_back(&mut self, val: T) {
+        if self.tail.is_none() {
+            let n = Node {
+                val,
+                prev: None,
+                next: None,
+            };
+            let link = Rc::new(RefCell::new(n));
+            self.tail = Some(Rc::clone(&link));
+            self.head = Some(link);
+            self.len += 1;
+        } else {
+            let old_tail = self.tail.take().unwrap();
+            let n = Node {
+                val,
+                prev: Some(Rc::clone(&old_tail)),
+                next: None,
+            };
+            let link = Rc::new(RefCell::new(n));
+            old_tail.borrow_mut().next = Some(Rc::clone(&link));
+            self.tail = Some(link);
+            self.len += 1;
+        }
+    }
+
     pub fn pop_front(&mut self) -> Option<T> {
         if self.len == 0 {
             return None;
         }
         let head = self.head.take().unwrap();
         let new_head = if let Some(link) = Rc::clone(&head).borrow_mut().next.take() {
+            link.borrow_mut().prev = None;
             Some(link)
         } else {
             None
@@ -76,10 +115,39 @@ impl<T> DubLinkedList<T> {
 
         self.len -= 1;
         self.head = new_head;
-        // this is our problem, figure out why we still have references to head
+        if self.len == 0 {
+            self.tail = None;
+        }
+
         let n = match Rc::try_unwrap(head) {
             Ok(node) => node,
             Err(_) => panic!("we did bad thing in pop_front, how dare you!"),
+        };
+        let v = n.into_inner().val;
+        Some(v)
+    }
+
+    pub fn pop_back(&mut self) -> Option<T> {
+        if self.len == 0 {
+            return None;
+        }
+        let tail = self.tail.take().unwrap();
+        let new_tail = if let Some(link) = Rc::clone(&tail).borrow_mut().prev.take() {
+            link.borrow_mut().next = None;
+            Some(link)
+        } else {
+            None
+        };
+
+        self.len -= 1;
+        self.tail = new_tail;
+        if self.len == 0 {
+            self.head = None;
+        }
+
+        let n = match Rc::try_unwrap(tail) {
+            Ok(node) => node,
+            Err(_) => panic!("we did a bad thing again in pop_back, wtaf!"),
         };
         let v = n.into_inner().val;
         Some(v)
@@ -123,5 +191,17 @@ mod tests {
         assert_eq!(Some(-2), l.pop_front());
         assert_eq!(Some(200), l.pop_front());
         assert_eq!(None, l.pop_front());
+        l.push_back(5000);
+        l.push_front(-200);
+        l.push_back(2);
+        assert_eq!(3, l.len);
+        // -200, 5000, 2
+        assert_eq!(Some(-200), l.get(0));
+        assert_eq!(Some(5000), l.get(1));
+        assert_eq!(Some(2), l.get(2));
+        assert_eq!(Some(2), l.pop_back());
+        assert_eq!(Some(5000), l.pop_back());
+        assert_eq!(Some(-200), l.pop_back());
+        assert_eq!(None, l.pop_back());
     }
 }
