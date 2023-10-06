@@ -203,5 +203,7 @@ mod tests {
         assert_eq!(Some(5000), l.pop_back());
         assert_eq!(Some(-200), l.pop_back());
         assert_eq!(None, l.pop_back());
+        l.pop_back();
+        assert_eq!(0, l.len);
     }
 }
