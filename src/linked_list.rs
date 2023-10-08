@@ -15,6 +15,9 @@ pub struct LinkedList<T> {
     len: usize,
 }
 
+// unsafe impl<T: Send> Send for LinkedList<T> {}
+// unsafe impl<T: Sync> Sync for LinkedList<T> {}
+
 struct Node<T> {
     val: T,
     next: Option<Box<Node<T>>>,
