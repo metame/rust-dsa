@@ -11,6 +11,7 @@
  * pop_back
 */
 use std::alloc::Layout;
+use std::mem;
 use std::ptr::{self, NonNull};
 
 #[derive(std::fmt::Debug)]
@@ -66,9 +67,15 @@ impl<T> RingBuffer<T> {
             &self.cap / 4
         };
 
+        let is_overwrite = self.length == self.cap;
+
         unsafe {
-            // TODO: this doesn't handle Ts in tail that should be Dropped if overwriting tail
-            ptr::write(self.ptr.as_ptr().add(new_head), item);
+            let p = self.ptr.as_ptr().add(new_head);
+            if mem::needs_drop::<T>() && is_overwrite {
+                let v = ptr::read(p);
+                drop(v);
+            }
+            ptr::write(p, item);
         }
 
         // update head
@@ -77,7 +84,7 @@ impl<T> RingBuffer<T> {
         if self.length == 0 {
             self.tail = Some(new_head);
         } else if self.length == self.cap {
-            self.tail.map(|i| self.before(i));
+            self.tail = self.tail.map(|i| self.before(i));
         }
         // update length if length < cap
         if self.length < self.cap {
@@ -87,8 +94,8 @@ impl<T> RingBuffer<T> {
 
     pub fn pop_back(&mut self) -> Option<T> {
         // get el at tail
-        let old_tail = if self.tail.take().is_some() {
-            self.tail.unwrap()
+        let old_tail = if let Some(old_i) = self.tail.take() {
+            old_i
         } else {
             return None;
         };
@@ -107,7 +114,9 @@ impl<T> RingBuffer<T> {
 
 impl<T> Drop for RingBuffer<T> {
     fn drop(&mut self) {
-        // TODO: call drop on all elements
+        while let Some(i) = self.pop_back() {
+            drop(i);
+        }
         unsafe {
             std::alloc::dealloc(self.ptr.as_ptr() as *mut u8, Layout::array::<T>(self.cap).unwrap());
         }
@@ -122,11 +131,33 @@ mod tests {
     fn ring_buffer_works() {
         let mut r = RingBuffer::<isize>::new(5);
 
-        dbg!(&r);
         r.push_front(15);
         r.push_front(10);
         r.push_front(7);
         r.push_front(-5);
-        assert_eq!(Some(15), r.pop_back());
+        r.push_front(75);
+        r.push_front(-2340);
+        assert_eq!(Some(10), r.pop_back());
+        assert_eq!(Some(7), r.pop_back());
+        r.push_front(-3498);
+        r.push_front(8383);
+        assert_eq!(Some(-5), r.pop_back());
+        assert_eq!(Some(75), r.pop_back());
+        assert_eq!(Some(-2340), r.pop_back());
+        assert_eq!(Some(-3498), r.pop_back());
+        assert_eq!(Some(8383), r.pop_back());
+        assert_eq!(None, r.pop_back());
+    }
+
+    #[test]
+    fn box_rb_works() {
+        let mut r = RingBuffer::<Box<String>>::new(5);
+        r.push_front(Box::new("hello".to_string()));
+        r.push_front(Box::new("hey".to_string()));
+        r.push_front(Box::new("hola".to_string()));
+        r.push_front(Box::new("gutentag".to_string()));
+        r.push_front(Box::new("ohaiyo".to_string()));
+        r.push_front(Box::new("sup".to_string()));
+        assert_eq!(Some("hey".to_string()), r.pop_back().map(|b| *b));
     }
 }
