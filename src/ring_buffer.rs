@@ -12,6 +12,7 @@
 */
 use std::alloc::Layout;
 use std::mem;
+use std::ops::Deref;
 use std::ptr::{self, NonNull};
 
 #[derive(std::fmt::Debug)]
@@ -83,7 +84,7 @@ impl<T> RingBuffer<T> {
         // update tail if length == cap
         if self.length == 0 {
             self.tail = Some(new_head);
-        } else if self.length == self.cap {
+        } else if is_overwrite {
             self.tail = self.tail.map(|i| self.before(i));
         }
         // update length if length < cap
@@ -111,6 +112,33 @@ impl<T> RingBuffer<T> {
         }
     }
 }
+
+// we have an underlying contiguous memory buffer
+// the elements that we had to the ringbuffer aren't necessarily in contiguous memory
+// because a ring buffer wraps
+// [4 5 x x x 0 1 2 3]
+impl<T> Deref for RingBuffer<T> {
+    type Target = [T];
+    fn deref(&self) -> &[T] {
+        if self.length == 0 {
+            &[]
+        } else if self.head < self.tail {
+            unsafe {
+                std::slice::from_raw_parts(self.ptr.as_ptr().add(self.head.unwrap()), self.length)
+            }
+        } else {
+            unsafe {
+                // slice from head, capacity - head
+                let head_slice = std::slice::from_raw_parts(self.ptr.as_ptr().add(self.head.unwrap()), self.length);
+                //slice from ptr, tail + 1
+                let tail_slice = std::slice::from_raw_parts(self.ptr.as_ptr(), self.tail.unwrap() + 1);
+                &[]
+            }
+        }
+
+    }
+}
+
 
 impl<T> Drop for RingBuffer<T> {
     fn drop(&mut self) {
