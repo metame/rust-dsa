@@ -50,6 +50,11 @@ impl<T> RingBuffer<T> {
         }
     }
 
+    /// panics if index is out of bounds
+    fn offset(&self, index: usize) -> usize {
+        (self.head.expect("index out of bounds") + index) % self.cap
+    }
+
     fn before(&self, i: usize) -> usize {
         if i == 0 {
             self.cap - 1
@@ -107,19 +112,21 @@ impl<T> RingBuffer<T> {
         // return el
         unsafe { Some(ptr::read(self.ptr.as_ptr().add(old_tail))) }
     }
+
+    pub fn iter(&self) -> RingBufferIterator<T> {
+        RingBufferIterator {
+            current: 0,
+            buf: self,
+        }
+    }
 }
 
-// we have an underlying contiguous memory buffer
-// the elements that we had to the ringbuffer aren't necessarily in contiguous memory
-// because a ring buffer wraps
-// [4 5 x x x 0 1 2 3]
 impl<T> Index<usize> for RingBuffer<T> {
     type Output = T;
     /// Panics if index is out of bounds
     fn index(&self, index: usize) -> &Self::Output {
-        let offset = (self.head.expect("index out of bounds") + index) % self.cap;
         if index < self.length {
-            unsafe { self.ptr.as_ptr().add(offset).as_ref().expect("NPE how?") }
+            unsafe { self.ptr.as_ptr().add(self.offset(index)).as_ref().expect("NPE how?") }
         } else {
             panic!("index out of bounds")
         }
@@ -128,11 +135,28 @@ impl<T> Index<usize> for RingBuffer<T> {
 
 impl<T> IndexMut<usize> for RingBuffer<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        let offset = (self.head.expect("index out of bounds") + index) % self.cap;
         if index < self.length {
-            unsafe { self.ptr.as_ptr().add(offset).as_mut().expect("NPE how?") }
+            unsafe { self.ptr.as_ptr().add(self.offset(index)).as_mut().expect("NPE how?") }
         } else {
             panic!("index out of bounds")
+        }
+    }
+}
+
+pub struct RingBufferIterator<'a, T> {
+    current: usize,
+    buf: &'a RingBuffer<T>,
+}
+
+impl<'a, T: std::fmt::Debug> Iterator for RingBufferIterator<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current < self.buf.length {
+            let current = self.current;
+            self.current += 1;
+            Some(&self.buf[current])
+        } else {
+            None
         }
     }
 }
@@ -207,5 +231,27 @@ mod tests {
         r.push_front(Box::new("sup".to_string()));
         assert_eq!(Some("hey".to_string()), r.pop_back().map(|b| *b));
         assert_eq!(Box::new("gutentag".to_string()), r[2]);
+    }
+
+    #[test]
+    fn iter_tests() {
+        let mut r = RingBuffer::<f64>::new(5);
+        r.push_front(5.5);
+        r.push_front(8.2);
+        r.push_front(9.1);
+        r.push_front(6.3);
+        r.push_front(1.5436);
+
+        let mut i = 0;
+        for e in r.iter() {
+            dbg!(e);
+            i += 1;
+        }
+
+        assert_eq!(i, r.length);
+
+        let mut iter = r.iter();
+        assert_eq!(Some(&5.5), iter.nth(4));
+        assert!(r.iter().fold(0f64, |x, y| x + y) > 0f64);
     }
 }
