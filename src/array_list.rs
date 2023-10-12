@@ -56,7 +56,9 @@ impl<T: Debug + Default + Clone + PartialEq> ArrayList<T> {
     }
 
     pub fn pop(&mut self) -> Option<T> {
-        if self.length == 0 { return None; }
+        if self.length == 0 {
+            return None;
+        }
         let tail = self.length - 1;
         let item = self.inner[tail].clone();
         println!("removing {item:?} from {self:?}");

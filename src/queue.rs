@@ -34,7 +34,10 @@ impl<T: Debug> Queue<T> {
         self.list.pop_front()
     }
 
-    pub fn peek(&self) -> Option<T> where T: Clone {
+    pub fn peek(&self) -> Option<T>
+    where
+        T: Clone,
+    {
         self.list.get(0)
     }
 }

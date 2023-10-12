@@ -6,7 +6,6 @@ pub mod ring_buffer;
 pub mod stack;
 pub mod vec;
 
-
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }

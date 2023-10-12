@@ -38,19 +38,17 @@ impl<T> Stack<T> {
         };
 
         let ptr = if self.cap == 0 {
-            unsafe {
-                alloc::alloc(layout)
-            }
+            unsafe { alloc::alloc(layout) }
         } else {
             let new_size = new_cap * mem::size_of::<T>();
-            unsafe {
-                alloc::realloc(self.ptr.as_ptr() as *mut u8, layout, new_size)
-            }
+            unsafe { alloc::realloc(self.ptr.as_ptr() as *mut u8, layout, new_size) }
         };
 
         self.cap = new_cap;
         match NonNull::new(ptr as *mut T) {
-            Some(ptr) => { self.ptr = ptr; },
+            Some(ptr) => {
+                self.ptr = ptr;
+            }
             None => alloc::handle_alloc_error(layout),
         }
     }
@@ -60,13 +58,12 @@ impl<T> Stack<T> {
             None
         } else {
             self.len -= 1;
-            unsafe {
-                Some(ptr::read(self.ptr.as_ptr().add(self.len)))
-            }
+            unsafe { Some(ptr::read(self.ptr.as_ptr().add(self.len))) }
         }
     }
 
-    pub fn push(&mut self, item: T) { // item = 1, len = 5, cap = 8
+    pub fn push(&mut self, item: T) {
+        // item = 1, len = 5, cap = 8
         if self.cap == self.len {
             self.grow();
         }
@@ -84,7 +81,10 @@ impl<T> Drop for Stack<T> {
             drop(item);
         }
         unsafe {
-            alloc::dealloc(self.ptr.as_ptr() as *mut u8, Layout::array::<T>(self.cap).unwrap());
+            alloc::dealloc(
+                self.ptr.as_ptr() as *mut u8,
+                Layout::array::<T>(self.cap).unwrap(),
+            );
         }
     }
 }

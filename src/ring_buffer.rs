@@ -126,7 +126,13 @@ impl<T> Index<usize> for RingBuffer<T> {
     /// Panics if index is out of bounds
     fn index(&self, index: usize) -> &Self::Output {
         if index < self.length {
-            unsafe { self.ptr.as_ptr().add(self.offset(index)).as_ref().expect("NPE how?") }
+            unsafe {
+                self.ptr
+                    .as_ptr()
+                    .add(self.offset(index))
+                    .as_ref()
+                    .expect("NPE how?")
+            }
         } else {
             panic!("index out of bounds")
         }
@@ -136,7 +142,13 @@ impl<T> Index<usize> for RingBuffer<T> {
 impl<T> IndexMut<usize> for RingBuffer<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         if index < self.length {
-            unsafe { self.ptr.as_ptr().add(self.offset(index)).as_mut().expect("NPE how?") }
+            unsafe {
+                self.ptr
+                    .as_ptr()
+                    .add(self.offset(index))
+                    .as_mut()
+                    .expect("NPE how?")
+            }
         } else {
             panic!("index out of bounds")
         }

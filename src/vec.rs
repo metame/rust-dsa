@@ -1,4 +1,4 @@
-#![allow(dead_code,warnings)]
+#![allow(dead_code, warnings)]
 /*
 Reference implementation of Vec taken from Rustonomicon:
 https://doc.rust-lang.org/nomicon/vec
@@ -37,7 +37,10 @@ impl<T> Vec<T> {
             (new_cap, new_layout)
         };
 
-        assert!(new_layout.size() <= isize::MAX as usize, "Allocation too large");
+        assert!(
+            new_layout.size() <= isize::MAX as usize,
+            "Allocation too large"
+        );
 
         let new_ptr = if self.cap == 0 {
             unsafe { alloc::alloc(new_layout) }
@@ -55,7 +58,9 @@ impl<T> Vec<T> {
     }
 
     pub fn push(&mut self, elem: T) {
-        if self.len == self.cap { self.grow(); }
+        if self.len == self.cap {
+            self.grow();
+        }
 
         unsafe {
             ptr::write(self.ptr.as_ptr().add(self.len), elem);
@@ -69,9 +74,7 @@ impl<T> Vec<T> {
             None
         } else {
             self.len -= 1;
-            unsafe {
-                Some(ptr::read(self.ptr.as_ptr().add(self.len)))
-            }
+            unsafe { Some(ptr::read(self.ptr.as_ptr().add(self.len))) }
         }
     }
 
@@ -79,7 +82,9 @@ impl<T> Vec<T> {
         // Note: `<=` because it's valid to insert after everything
         // which would be equivalent to push.
         assert!(index <= self.len, "index out of bounds");
-        if self.cap == self.len { self.grow(); }
+        if self.cap == self.len {
+            self.grow();
+        }
 
         unsafe {
             // ptr::copy(src, dest, len): "copy from src to dest len elems"
@@ -112,7 +117,7 @@ impl<T> Vec<T> {
 impl<T> Drop for Vec<T> {
     fn drop(&mut self) {
         if self.cap != 0 {
-            while let Some(_) = self.pop() { }
+            while let Some(_) = self.pop() {}
             let layout = Layout::array::<T>(self.cap).unwrap();
             unsafe {
                 alloc::dealloc(self.ptr.as_ptr() as *mut u8, layout);
@@ -126,9 +131,7 @@ use std::ops::Deref;
 impl<T> Deref for Vec<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
-        unsafe {
-            std::slice::from_raw_parts(self.ptr.as_ptr(), self.len)
-        }
+        unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
     }
 }
 
@@ -136,9 +139,7 @@ use std::ops::DerefMut;
 
 impl<T> DerefMut for Vec<T> {
     fn deref_mut(&mut self) -> &mut [T] {
-        unsafe {
-            std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len)
-        }
+        unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
 }
 
@@ -168,8 +169,7 @@ impl<T> IntoIterator for Vec<T> {
                     ptr.as_ptr()
                 } else {
                     ptr.as_ptr().add(len)
-                }
-
+                },
             }
         }
     }
@@ -190,8 +190,7 @@ impl<T> Iterator for IntoIter<T> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = (self.end as usize - self.start as usize)
-            / mem::size_of::<T>();
+        let len = (self.end as usize - self.start as usize) / mem::size_of::<T>();
         (len, Some(len))
     }
 }
@@ -220,7 +219,6 @@ impl<T> Drop for IntoIter<T> {
         }
     }
 }
-
 
 #[cfg(test)]
 mod test {
