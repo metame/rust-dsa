@@ -162,11 +162,21 @@ impl<T> IndexMut<usize> for RingBuffer<T> {
     }
 }
 
-#[derive(Debug)]
 pub struct RingBufferIterator<'a, T> {
     current_front: usize,
     current_back: usize,
     buf: &'a RingBuffer<T>,
+}
+
+// this fn has been graciously donated by twitch.tv/laundmo
+impl<'a, T: Debug> Debug for RingBufferIterator<'a, T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut listb = f.debug_list();
+        for i in self.current_front..self.current_back {
+            listb.entry(&self.buf[i]);
+        }
+        listb.finish()
+    }
 }
 
 impl<'a, T> Iterator for RingBufferIterator<'a, T> {
