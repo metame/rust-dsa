@@ -11,17 +11,23 @@
  * pop_back
 */
 use std::alloc::Layout;
+use std::fmt::Debug;
 use std::mem;
 use std::ops::{Index, IndexMut};
 use std::ptr::{self, NonNull};
 
-#[derive(std::fmt::Debug)]
 pub struct RingBuffer<T> {
     ptr: NonNull<T>,
     head: Option<usize>,
     tail: Option<usize>,
     cap: usize,
     length: usize,
+}
+
+impl<T: Debug> Debug for RingBuffer<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.iter()).finish()
+    }
 }
 
 impl<T> RingBuffer<T> {
@@ -115,7 +121,8 @@ impl<T> RingBuffer<T> {
 
     pub fn iter(&self) -> RingBufferIterator<T> {
         RingBufferIterator {
-            current: 0,
+            current_front: 0,
+            current_back: self.length,
             buf: self,
         }
     }
@@ -155,18 +162,31 @@ impl<T> IndexMut<usize> for RingBuffer<T> {
     }
 }
 
+#[derive(Debug)]
 pub struct RingBufferIterator<'a, T> {
-    current: usize,
+    current_front: usize,
+    current_back: usize,
     buf: &'a RingBuffer<T>,
 }
 
-impl<'a, T: std::fmt::Debug> Iterator for RingBufferIterator<'a, T> {
+impl<'a, T> Iterator for RingBufferIterator<'a, T> {
     type Item = &'a T;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.current < self.buf.length {
-            let current = self.current;
-            self.current += 1;
-            Some(&self.buf[current])
+        if self.current_front != self.current_back {
+            let current_front = self.current_front;
+            self.current_front += 1;
+            Some(&self.buf[current_front])
+        } else {
+            None
+        }
+    }
+}
+
+impl<'a, T> DoubleEndedIterator for RingBufferIterator<'a, T> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        if self.current_front != self.current_back {
+            self.current_back -= 1;
+            Some(&self.buf[self.current_back])
         } else {
             None
         }
@@ -265,5 +285,20 @@ mod tests {
         let mut iter = r.iter();
         assert_eq!(Some(&5.5), iter.nth(4));
         assert!(r.iter().fold(0f64, |x, y| x + y) > 0f64);
+
+        let mut i2 = r.iter();
+        assert_eq!(Some(&5.5), i2.next_back());
+        assert_eq!(Some(&8.2), i2.rev().nth(0));
+
+        let mut i3 = r.iter();
+        dbg!(&i3);
+        assert_eq!(Some(&8.2), i3.nth(3));
+        dbg!(&i3);
+        assert_eq!(Some(&5.5), i3.next_back());
+        dbg!(&i3);
+        assert_eq!(None, i3.next_back());
+        dbg!(&i3);
+        assert_eq!(None, i3.next());
+        dbg!(&i3);
     }
 }
