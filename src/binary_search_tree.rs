@@ -33,14 +33,70 @@ impl<T: PartialOrd> Node<T> {
         }
     }
 
+    /// Assumes that self.list.is_some()
+    fn replace_left_with_left_child(&mut self) -> Option<Box<Self>> {
+        if self.left.as_mut().unwrap().left.is_some() {
+            let l = self.left.as_mut().unwrap().left.take().unwrap();
+            self.left.replace(l)
+        } else {
+            self.left.take()
+        }
+    }
+
+    /// Assumes that self.right.is_some()
+    fn replace_right_with_left_child(&mut self) -> Option<Box<Self>> {
+        if self.right.as_mut().unwrap().left.is_some() {
+            let l = self.right.as_mut().unwrap().left.take().unwrap();
+            self.right.replace(l)
+        } else {
+            self.right.take()
+        }
+    }
+
+    // bad name, not waht it does really
+    fn recur_right(&mut self) -> Option<Box<Self>> {
+        if let Some(n) = &self.right {
+            if n.right.is_some() {
+                self.recur_right()
+            } else {
+                self.replace_right_with_left_child()
+            }
+        } else {
+            None
+        }
+    }
+
     // this doesn't work for deleting root node
     // much more complicated search: TODONE
-    // actually deleting the value and fixing the tree: TODO
+    // actually deleting the value and fixing the tree:
+    // Left: TODONE, Right: TODO
     fn delete(&mut self, value: T) -> Option<T> {
         if value < self.value {
             match self.left.as_mut() {
                 None => None,
-                Some(n) if value == n.value => Some(value),
+                Some(n) if value == n.value => {
+                    // get swap-node from n.left?.right(most) || n.right?
+                    let swap_node = if n.left.is_some() {
+                        let rightmost = n.left.as_mut().unwrap().recur_right();
+                        if rightmost.is_some() {
+                            rightmost
+                        } else {
+                            n.replace_left_with_left_child()
+                        }
+                    } else if n.right.is_some() {
+                        n.replace_right_with_left_child()
+                    } else {
+                        None
+                    };
+                    // set self.left.value = swap-node.value
+                    if let Some(swap_n) = swap_node {
+                        n.value = swap_n.value;
+                    } else {
+                        self.left = None;
+                    }
+                    // return deleted value
+                    Some(value)
+                },
                 Some(n) if value < n.value => {
                     n.left.as_mut().and_then(|n| n.delete(value))
                 },
