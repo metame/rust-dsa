@@ -36,7 +36,7 @@ impl<T: PartialOrd> Node<T> {
     // this doesn't work for deleting root node
     // much more complicated search: TODONE
     // actually deleting the value and fixing the tree: TODO
-    fn old_delete(&mut self, value: T) -> Option<T> {
+    fn delete(&mut self, value: T) -> Option<T> {
         if value < self.value {
             match self.left.as_mut() {
                 None => None,
@@ -59,42 +59,6 @@ impl<T: PartialOrd> Node<T> {
                     n.right.as_mut().and_then(|n| n.delete(value))
                 },
             }
-        }
-    }
-
-    fn recur_right(&mut self) -> Option<&mut Self> {
-        if self.right.is_some() {
-            self.right.as_mut().unwrap().recur_right()
-        } else {
-            Some(self)
-        }
-    }
-
-    fn find_swap(&mut self) -> Option<&mut Self> {
-        // go down left branch if exists and get right most element
-        if self.left.is_some() {
-            self.left.as_mut().unwrap().recur_right()
-        } else {
-            None
-        }
-    }
-
-    // this doesn't work because I have no way of updating the parent node
-    fn delete(&mut self, value: T) -> Option<T> {
-        self.search_mut(&value).and_then(|n| {
-            let swap = n.find_swap();
-
-            Some(value)
-        })
-    }
-
-    fn search_mut(&mut self, value: &T) -> Option<&mut Self> {
-        if value == &self.value {
-            Some(self)
-        } else if value < &self.value {
-            self.left.as_mut().and_then(|n| n.search_mut(value))
-        } else {
-            self.right.as_mut().and_then(|n| n.search_mut(value))
         }
     }
 
