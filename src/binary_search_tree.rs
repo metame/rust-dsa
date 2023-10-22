@@ -19,7 +19,7 @@ struct Node<T> {
     right: Option<Box<Node<T>>>,
 }
 
-impl<T: PartialOrd> Node<T> {
+impl<T: PartialOrd + std::fmt::Debug> Node<T> {
     fn insert_child(&mut self, node: Node<T>) {
         let branch = if node.value < self.value {
             &mut self.left
@@ -44,10 +44,11 @@ impl<T: PartialOrd> Node<T> {
     }
 
     /// Assumes that self.right.is_some()
-    fn replace_right_with_left_child(&mut self) -> Option<Box<Self>> {
-        if self.right.as_mut().unwrap().left.is_some() {
-            let l = self.right.as_mut().unwrap().left.take().unwrap();
-            self.right.replace(l)
+    fn replace_right_with_child(&mut self) -> Option<Box<Self>> {
+        if let Some(left_child) = self.right.as_mut().unwrap().left.take() {
+            self.right.replace(left_child)
+        } else if let Some(right_child) = self.right.as_mut().unwrap().right.take() {
+            self.right.replace(right_child)
         } else {
             self.right.take()
         }
@@ -55,65 +56,68 @@ impl<T: PartialOrd> Node<T> {
 
     // bad name, not waht it does really
     fn recur_right(&mut self) -> Option<Box<Self>> {
-        if let Some(n) = &self.right {
+        if let Some(n) = &mut self.right {
+            dbg!(&n.value);
             if n.right.is_some() {
-                self.recur_right()
+                n.recur_right()
             } else {
-                self.replace_right_with_left_child()
+                self.replace_right_with_child()
             }
         } else {
             None
         }
     }
 
+    fn swap_node(&mut self) -> Option<&mut Self> {
+        let swap_node = if let Some(left) = &mut self.left {
+            let rightmost = left.recur_right();
+            if rightmost.is_some() {
+                dbg!(&rightmost.as_ref().unwrap().value);
+                rightmost
+            } else {
+                self.replace_left_with_left_child()
+            }
+        } else if self.right.is_some() {
+            self.replace_right_with_child()
+        } else {
+            None
+        };
+
+        if let Some(swap_n) = swap_node {
+            self.value = swap_n.value;
+            Some(self)
+        } else {
+            None
+        }
+    }
+
     // this doesn't work for deleting root node
-    // much more complicated search: TODONE
-    // actually deleting the value and fixing the tree:
-    // Left: TODONE, Right: TODO
-    fn delete(&mut self, value: T) -> Option<T> {
+    fn delete_from(&mut self, value: T) -> Option<T> {
+        dbg!(&self.value);
         if value < self.value {
             match self.left.as_mut() {
                 None => None,
                 Some(n) if value == n.value => {
-                    // get swap-node from n.left?.right(most) || n.right?
-                    let swap_node = if n.left.is_some() {
-                        let rightmost = n.left.as_mut().unwrap().recur_right();
-                        if rightmost.is_some() {
-                            rightmost
-                        } else {
-                            n.replace_left_with_left_child()
-                        }
-                    } else if n.right.is_some() {
-                        n.replace_right_with_left_child()
-                    } else {
-                        None
-                    };
-                    // set self.left.value = swap-node.value
-                    if let Some(swap_n) = swap_node {
-                        n.value = swap_n.value;
-                    } else {
+                    if n.swap_node().is_none() {
                         self.left = None;
                     }
-                    // return deleted value
                     Some(value)
                 },
-                Some(n) if value < n.value => {
-                    n.left.as_mut().and_then(|n| n.delete(value))
-                },
-                Some(n) => {
-                    n.right.as_mut().and_then(|n| n.delete(value))
-                },
+                Some(n) if value < n.value => n.left.as_mut().and_then(|n| n.delete_from(value)),
+                Some(n) => n.right.as_mut().and_then(|n| n.delete_from(value)),
             }
         } else {
+            dbg!(self.right.as_ref().map(|n| &n.value));
             match self.right.as_mut() {
                 None => None,
-                Some(n) if value == n.value => Some(value),
-                Some(n) if value < n.value => {
-                    n.left.as_mut().and_then(|n| n.delete(value))
-                },
-                Some(n) => {
-                    n.right.as_mut().and_then(|n| n.delete(value))
-                },
+                Some(n) if value == n.value => {
+                    if n.swap_node().is_none() {
+                        self.right = None;
+                    }
+                    Some(value)
+                }
+                Some(n) if value < n.value => n.left.as_mut().and_then(|n| n.delete_from(value)),
+                Some(n) => n.right.as_mut().and_then(|n| n.delete_from(value)),
             }
         }
     }
@@ -129,7 +133,7 @@ impl<T: PartialOrd> Node<T> {
     }
 }
 
-impl<T: PartialOrd> BinarySearchTree<T> {
+impl<T: PartialOrd + std::fmt::Debug> BinarySearchTree<T> {
     pub fn new() -> Self {
         BinarySearchTree { root: None }
     }
@@ -156,7 +160,7 @@ impl<T: PartialOrd> BinarySearchTree<T> {
     // if it has children, take the node.left.right(most) node and replace it
     pub fn delete(&mut self, value: T) -> Option<T> {
         if let Some(node) = self.root.as_mut() {
-            node.delete(value)
+            node.delete_from(value)
         } else {
             None
         }
@@ -178,11 +182,29 @@ mod tests {
         bst.insert(17);
         bst.insert(3458);
         bst.insert(2000);
-        dbg!(&bst);
         assert!(bst.search(10));
         assert!(bst.search(3458));
         assert!(bst.search(4));
         assert!(!bst.search(101));
         assert!(!bst.search(383));
+        bst.insert(1);
+        bst.insert(5);
+        bst.insert(6);
+        assert_eq!(Some(7), bst.delete(7));
+        bst.insert(4);
+        assert_eq!(Some(6), bst.delete(6));
+        dbg!(&bst);
+        assert_eq!(Some(3458), bst.delete(3458));
+        dbg!(&bst);
+        assert_eq!(Some(15), bst.delete(15));
+        dbg!(&bst);
+        bst.insert(1000);
+        bst.insert(900);
+        bst.insert(800);
+        assert_eq!(Some(1000), bst.delete(1000));
+        dbg!(&bst);
+        // this isn't working for some reason even though the tree looks right before this
+        assert_eq!(Some(2000), bst.delete(2000));
+
     }
 }
