@@ -1,12 +1,14 @@
 #![allow(dead_code)]
+use std::fmt::Debug;
+
 /**
  * Binary Search Tree
  * sorted
  * Node.left.value < Node.value
  * Node.right.value >= Node.value
  * search, insertion & removal: O(log N)
+ * Vec: input & output, impl From<Vec<T>>, Into<Vec<T>>,
 */
-
 #[derive(Debug)]
 pub struct BinarySearchTree<T> {
     root: Option<Box<Node<T>>>,
@@ -19,7 +21,7 @@ struct Node<T> {
     right: Option<Box<Node<T>>>,
 }
 
-impl<T: PartialOrd + std::fmt::Debug> Node<T> {
+impl<T: PartialOrd + Debug> Node<T> {
     fn insert_child(&mut self, node: Node<T>) {
         let branch = if node.value < self.value {
             &mut self.left
@@ -103,8 +105,7 @@ impl<T: PartialOrd + std::fmt::Debug> Node<T> {
                     }
                     Some(value)
                 },
-                Some(n) if value < n.value => n.left.as_mut().and_then(|n| n.delete_from(value)),
-                Some(n) => n.right.as_mut().and_then(|n| n.delete_from(value)),
+                Some(n) => n.delete_from(value),
             }
         } else {
             dbg!(self.right.as_ref().map(|n| &n.value));
@@ -116,8 +117,7 @@ impl<T: PartialOrd + std::fmt::Debug> Node<T> {
                     }
                     Some(value)
                 }
-                Some(n) if value < n.value => n.left.as_mut().and_then(|n| n.delete_from(value)),
-                Some(n) => n.right.as_mut().and_then(|n| n.delete_from(value)),
+                Some(n) => n.delete_from(value),
             }
         }
     }
@@ -133,7 +133,7 @@ impl<T: PartialOrd + std::fmt::Debug> Node<T> {
     }
 }
 
-impl<T: PartialOrd + std::fmt::Debug> BinarySearchTree<T> {
+impl<T: PartialOrd + Debug> BinarySearchTree<T> {
     pub fn new() -> Self {
         BinarySearchTree { root: None }
     }
@@ -159,17 +159,122 @@ impl<T: PartialOrd + std::fmt::Debug> BinarySearchTree<T> {
     // if deleted node doesn't have children, remove from parent and return value
     // if it has children, take the node.left.right(most) node and replace it
     pub fn delete(&mut self, value: T) -> Option<T> {
-        if let Some(node) = self.root.as_mut() {
-            node.delete_from(value)
+        match self.root.as_mut() {
+            None => None,
+            Some(n) if value == n.value => {
+                if n.swap_node().is_none() {
+                    self.root = None;
+                }
+                Some(value)
+            },
+            Some(n) => n.delete_from(value),
+        }
+    }
+
+    pub fn iter<'a>(&'a self) -> BSTIterator<'a, T> {
+        BSTIterator {
+            stack: Vec::new(),
+            current: self.root.as_ref().and_then(|n| Some(n)),
+        }
+    }
+}
+
+pub struct BSTIterator<'a, T> {
+    stack: Vec<Box<Node<T>>>,
+    current: Option<&'a Box<Node<T>>>,
+}
+
+// node iter
+// root -> leftmost node, keep track of every node we visit
+//
+
+fn node_traversal<'a, T: Clone>(n: &Box<Node<T>>, output: &'a mut Vec<T>) -> &'a mut Vec<T> {
+    if n.left.is_some() {
+        node_traversal(n.left.as_ref().unwrap(), output);
+    }
+
+    output.push(n.value.clone());
+
+    if n.right.is_some() {
+        node_traversal(n.right.as_ref().unwrap(), output);
+    }
+
+    output
+}
+
+fn io_traversal<T: Clone>(bst: &BinarySearchTree<T>) -> Vec<T> {
+    let mut v = Vec::new();
+    if let Some(n) = &bst.root {
+        node_traversal(n, &mut v);
+    }
+    v
+}
+
+impl<'a, T> Iterator for BSTIterator<'a, T> {
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(n) = self.current.take() {
+            match (&n.left, &n.right) {
+                (Some(l), _) => {
+                    self.current = Some(l);
+                    todo!("node iter?")
+                }
+                _ => None,
+            }
         } else {
             None
         }
     }
 }
 
+impl<T: Clone> From<BinarySearchTree<T>> for Vec<T> {
+    fn from(value: BinarySearchTree<T>) -> Self {
+        io_traversal(&value)
+    }
+}
+
+impl<T: PartialOrd + Debug> From<Vec<T>> for BinarySearchTree<T> {
+    fn from(vec: Vec<T>) -> Self {
+        let mut bst = BinarySearchTree::<T>::new();
+        for v in vec {
+            bst.insert(v);
+        }
+        bst
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn io_traversal_works() {
+        let mut bst = BinarySearchTree::<usize>::new();
+        bst.insert(9);
+        bst.insert(5);
+        bst.insert(4);
+        bst.insert(1);
+        bst.insert(4);
+        bst.insert(6);
+        bst.insert(8);
+        bst.insert(17);
+        bst.insert(900);
+        bst.insert(800);
+        let v = io_traversal(&bst);
+        assert_eq!(vec![1, 4, 4, 5, 6, 8, 9, 17, 800, 900], v);
+        dbg!(v);
+        assert_eq!(vec![1, 4, 4, 5, 6, 8, 9, 17, 800, 900], Vec::from(bst));
+    }
+
+    #[test]
+    fn from_vec_works() {
+        let vec = vec![3, 10, 0];
+        let bst = BinarySearchTree::from(vec);
+        dbg!(&bst);
+        assert!(bst.search(10));
+        assert!(bst.search(3));
+        assert!(bst.search(0));
+    }
 
     #[test]
     fn bst_works() {
@@ -203,8 +308,9 @@ mod tests {
         bst.insert(800);
         assert_eq!(Some(1000), bst.delete(1000));
         dbg!(&bst);
-        // this isn't working for some reason even though the tree looks right before this
         assert_eq!(Some(2000), bst.delete(2000));
-
+        dbg!(&bst);
+        assert_eq!(Some(10), bst.delete(10));
+        dbg!(&bst);
     }
 }

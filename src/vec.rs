@@ -1,6 +1,6 @@
 #![allow(dead_code, warnings)]
 /*
-Reference implementation of Vec taken from Rustonomicon:
+Reference implementation of MyVec taken from Rustonomicon:
 https://doc.rust-lang.org/nomicon/vec
 Purposefully left incomplete but will be used for a reference for unsafe rust actions when implementing the rest of our DSs
 */
@@ -9,19 +9,19 @@ use std::alloc::{self, Layout};
 use std::mem::{self, ManuallyDrop};
 use std::ptr::{self, NonNull};
 
-pub struct Vec<T> {
+pub struct MyVec<T> {
     ptr: NonNull<T>,
     cap: usize,
     len: usize,
 }
 
-unsafe impl<T: Send> Send for Vec<T> {}
-unsafe impl<T: Sync> Sync for Vec<T> {}
+unsafe impl<T: Send> Send for MyVec<T> {}
+unsafe impl<T: Sync> Sync for MyVec<T> {}
 
-impl<T> Vec<T> {
+impl<T> MyVec<T> {
     pub fn new() -> Self {
         assert!(mem::size_of::<T>() != 0, "We're not ready to handle ZSTs");
-        Vec {
+        MyVec {
             ptr: NonNull::dangling(),
             len: 0,
             cap: 0,
@@ -114,7 +114,7 @@ impl<T> Vec<T> {
     }
 }
 
-impl<T> Drop for Vec<T> {
+impl<T> Drop for MyVec<T> {
     fn drop(&mut self) {
         if self.cap != 0 {
             while let Some(_) = self.pop() {}
@@ -128,7 +128,7 @@ impl<T> Drop for Vec<T> {
 
 use std::ops::Deref;
 
-impl<T> Deref for Vec<T> {
+impl<T> Deref for MyVec<T> {
     type Target = [T];
     fn deref(&self) -> &[T] {
         unsafe { std::slice::from_raw_parts(self.ptr.as_ptr(), self.len) }
@@ -137,7 +137,7 @@ impl<T> Deref for Vec<T> {
 
 use std::ops::DerefMut;
 
-impl<T> DerefMut for Vec<T> {
+impl<T> DerefMut for MyVec<T> {
     fn deref_mut(&mut self) -> &mut [T] {
         unsafe { std::slice::from_raw_parts_mut(self.ptr.as_ptr(), self.len) }
     }
@@ -150,7 +150,7 @@ pub struct IntoIter<T> {
     end: *const T,
 }
 
-impl<T> IntoIterator for Vec<T> {
+impl<T> IntoIterator for MyVec<T> {
     type Item = T;
     type IntoIter = IntoIter<T>;
     fn into_iter(self) -> IntoIter<T> {
@@ -226,11 +226,11 @@ mod test {
 
     #[test]
     fn vec_works() {
-        dbg!(std::mem::size_of::<Vec<i8>>());
-        dbg!(std::mem::size_of::<Vec<i64>>());
-        dbg!(std::mem::align_of::<Vec<i8>>());
-        dbg!(std::mem::align_of::<Vec<i64>>());
-        dbg!(std::mem::size_of::<Vec<i128>>());
+        dbg!(std::mem::size_of::<MyVec<i8>>());
+        dbg!(std::mem::size_of::<MyVec<i64>>());
+        dbg!(std::mem::align_of::<MyVec<i8>>());
+        dbg!(std::mem::align_of::<MyVec<i64>>());
+        dbg!(std::mem::size_of::<MyVec<i128>>());
         dbg!(Layout::array::<i8>(1).unwrap());
         dbg!(Layout::array::<i8>(5).unwrap());
         dbg!(Layout::array::<i64>(1).unwrap());
