@@ -21,7 +21,7 @@ struct Node<T> {
     right: Option<Box<Node<T>>>,
 }
 
-impl<T: PartialOrd + Debug> Node<T> {
+impl<T: PartialOrd> Node<T> {
     fn insert_child(&mut self, node: Node<T>) {
         let branch = if node.value < self.value {
             &mut self.left
@@ -59,7 +59,6 @@ impl<T: PartialOrd + Debug> Node<T> {
     // bad name, not waht it does really
     fn recur_right(&mut self) -> Option<Box<Self>> {
         if let Some(n) = &mut self.right {
-            dbg!(&n.value);
             if n.right.is_some() {
                 n.recur_right()
             } else {
@@ -74,7 +73,6 @@ impl<T: PartialOrd + Debug> Node<T> {
         let swap_node = if let Some(left) = &mut self.left {
             let rightmost = left.recur_right();
             if rightmost.is_some() {
-                dbg!(&rightmost.as_ref().unwrap().value);
                 rightmost
             } else {
                 self.replace_left_with_left_child()
@@ -95,7 +93,6 @@ impl<T: PartialOrd + Debug> Node<T> {
 
     // this doesn't work for deleting root node
     fn delete_from(&mut self, value: T) -> Option<T> {
-        dbg!(&self.value);
         if value < self.value {
             match self.left.as_mut() {
                 None => None,
@@ -108,7 +105,6 @@ impl<T: PartialOrd + Debug> Node<T> {
                 Some(n) => n.delete_from(value),
             }
         } else {
-            dbg!(self.right.as_ref().map(|n| &n.value));
             match self.right.as_mut() {
                 None => None,
                 Some(n) if value == n.value => {
@@ -131,9 +127,24 @@ impl<T: PartialOrd + Debug> Node<T> {
             self.right.as_ref().and_then(|n| n.search(value))
         }
     }
+
+    fn node_traversal<F>(mut self, f: &mut F)
+    where F: FnMut(T),
+    {
+        if let Some(l) = self.left.take() {
+            l.node_traversal(f);
+        }
+        let right = self.right.take();
+        f(self.value);
+
+        if let Some(r) = right {
+            r.node_traversal(f);
+        }
+    }
+
 }
 
-impl<T: PartialOrd + Debug> BinarySearchTree<T> {
+impl<T: PartialOrd> BinarySearchTree<T> {
     pub fn new() -> Self {
         BinarySearchTree { root: None }
     }
@@ -171,6 +182,15 @@ impl<T: PartialOrd + Debug> BinarySearchTree<T> {
         }
     }
 
+    /// In order traversal applying `f` to each `T` consuming `self`
+    pub fn io_traversal<F>(mut self, f: &mut F)
+    where F: FnMut(T),
+    {
+        if let Some(n) = self.root.take() {
+            n.node_traversal(f);
+        }
+    }
+
     pub fn iter<'a>(&'a self) -> BSTIterator<'a, T> {
         BSTIterator {
             stack: Vec::new(),
@@ -184,37 +204,11 @@ pub struct BSTIterator<'a, T> {
     current: Option<&'a Box<Node<T>>>,
 }
 
-// node iter
-// root -> leftmost node, keep track of every node we visit
-//
-
-fn node_traversal<T, F>(mut n: Box<Node<T>>, f: &mut F)
-    where F: FnMut(Box<Node<T>>),
-{
-    if n.left.is_some() {
-        node_traversal(n.left.take().unwrap(), f);
-    }
-    let r = n.right.take();
-    f(n);
-
-    if r.is_some() {
-        node_traversal(r.unwrap(), f);
-    }
-}
-
-fn io_traversal<T, F>(mut bst: BinarySearchTree<T>, f: &mut F)
-    where F: FnMut(Box<Node<T>>),
-{
-    if let Some(n) = bst.root.take() {
-        node_traversal(n, f);
-    }
-}
-
-impl<T: Clone> From<BinarySearchTree<T>> for Vec<T> {
+impl<T: PartialOrd> From<BinarySearchTree<T>> for Vec<T> {
     fn from(bst: BinarySearchTree<T>) -> Self {
-        let mut v = Vec::new();
-        io_traversal(bst, &mut |n: Box<Node<T>>| v.push(n.value));
-        v
+        let mut vec = Vec::new();
+        bst.io_traversal(&mut |v: T| vec.push(v));
+        vec
     }
 }
 
