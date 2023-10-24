@@ -128,17 +128,18 @@ impl<T: PartialOrd> Node<T> {
         }
     }
 
-    fn node_traversal<F>(mut self, f: &mut F)
+    /// In order traversal applying f to self.value, consuming self
+    fn traverse<F>(mut self, f: &mut F)
     where F: FnMut(T),
     {
         if let Some(l) = self.left.take() {
-            l.node_traversal(f);
+            l.traverse(f);
         }
         let right = self.right.take();
         f(self.value);
 
         if let Some(r) = right {
-            r.node_traversal(f);
+            r.traverse(f);
         }
     }
 
@@ -183,11 +184,11 @@ impl<T: PartialOrd> BinarySearchTree<T> {
     }
 
     /// In order traversal applying `f` to each `T` consuming `self`
-    pub fn io_traversal<F>(mut self, f: &mut F)
+    pub fn traverse<F>(mut self, f: &mut F)
     where F: FnMut(T),
     {
         if let Some(n) = self.root.take() {
-            n.node_traversal(f);
+            n.traverse(f);
         }
     }
 
@@ -207,7 +208,7 @@ pub struct BSTIterator<'a, T> {
 impl<T: PartialOrd> From<BinarySearchTree<T>> for Vec<T> {
     fn from(bst: BinarySearchTree<T>) -> Self {
         let mut vec = Vec::new();
-        bst.io_traversal(&mut |v: T| vec.push(v));
+        bst.traverse(&mut |v: T| vec.push(v));
         vec
     }
 }
@@ -244,7 +245,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn io_traversal_works() {
+    fn traverse_works() {
         let mut bst = BinarySearchTree::<usize>::new();
         bst.insert(9);
         bst.insert(5);
