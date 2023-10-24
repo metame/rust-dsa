@@ -195,14 +195,10 @@ impl<T: PartialOrd> BinarySearchTree<T> {
     pub fn iter<'a>(&'a self) -> BSTIterator<'a, T> {
         BSTIterator {
             stack: Vec::new(),
-            current: self.root.as_ref().and_then(|n| Some(n)),
+            root: self.root.as_ref().and_then(|n| Some(n)),
+            current: None,
         }
     }
-}
-
-pub struct BSTIterator<'a, T> {
-    stack: Vec<Box<Node<T>>>,
-    current: Option<&'a Box<Node<T>>>,
 }
 
 impl<T: PartialOrd> From<BinarySearchTree<T>> for Vec<T> {
@@ -223,17 +219,21 @@ impl<T: PartialOrd + Debug> From<Vec<T>> for BinarySearchTree<T> {
     }
 }
 
+// BST Iterator:
+// reference to root
+// reference to our current node
+// reference to the parents of current
+pub struct BSTIterator<'a, T> {
+    stack: Vec<Box<Node<T>>>,
+    root: Option<&'a Box<Node<T>>>,
+    current: Option<&'a Box<Node<T>>>,
+}
+
 impl<'a, T> Iterator for BSTIterator<'a, T> {
     type Item = T;
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(n) = self.current.take() {
-            match (&n.left, &n.right) {
-                (Some(l), _) => {
-                    self.current = Some(l);
-                    todo!("node iter?")
-                }
-                _ => None,
-            }
+        if root.is_none() {
+            None
         } else {
             None
         }
