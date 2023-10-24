@@ -9,12 +9,12 @@ use std::fmt::Debug;
  * search, insertion & removal: O(log N)
  * Vec: input & output, impl From<Vec<T>>, Into<Vec<T>>,
 */
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct BinarySearchTree<T> {
     root: Option<Box<Node<T>>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Node<T> {
     value: T,
     left: Option<Box<Node<T>>>,
@@ -188,26 +188,44 @@ pub struct BSTIterator<'a, T> {
 // root -> leftmost node, keep track of every node we visit
 //
 
-fn node_traversal<'a, T: Clone>(n: &Box<Node<T>>, output: &'a mut Vec<T>) -> &'a mut Vec<T> {
+fn node_traversal<T, F>(mut n: Box<Node<T>>, f: &mut F)
+    where F: FnMut(Box<Node<T>>),
+{
     if n.left.is_some() {
-        node_traversal(n.left.as_ref().unwrap(), output);
+        node_traversal(n.left.take().unwrap(), f);
     }
+    let r = n.right.take();
+    f(n);
 
-    output.push(n.value.clone());
-
-    if n.right.is_some() {
-        node_traversal(n.right.as_ref().unwrap(), output);
+    if r.is_some() {
+        node_traversal(r.unwrap(), f);
     }
-
-    output
 }
 
-fn io_traversal<T: Clone>(bst: &BinarySearchTree<T>) -> Vec<T> {
-    let mut v = Vec::new();
-    if let Some(n) = &bst.root {
-        node_traversal(n, &mut v);
+fn io_traversal<T, F>(mut bst: BinarySearchTree<T>, f: &mut F)
+    where F: FnMut(Box<Node<T>>),
+{
+    if let Some(n) = bst.root.take() {
+        node_traversal(n, f);
     }
-    v
+}
+
+impl<T: Clone> From<BinarySearchTree<T>> for Vec<T> {
+    fn from(bst: BinarySearchTree<T>) -> Self {
+        let mut v = Vec::new();
+        io_traversal(bst, &mut |n: Box<Node<T>>| v.push(n.value));
+        v
+    }
+}
+
+impl<T: PartialOrd + Debug> From<Vec<T>> for BinarySearchTree<T> {
+    fn from(vec: Vec<T>) -> Self {
+        let mut bst = BinarySearchTree::<T>::new();
+        for v in vec {
+            bst.insert(v);
+        }
+        bst
+    }
 }
 
 impl<'a, T> Iterator for BSTIterator<'a, T> {
@@ -224,22 +242,6 @@ impl<'a, T> Iterator for BSTIterator<'a, T> {
         } else {
             None
         }
-    }
-}
-
-impl<T: Clone> From<BinarySearchTree<T>> for Vec<T> {
-    fn from(value: BinarySearchTree<T>) -> Self {
-        io_traversal(&value)
-    }
-}
-
-impl<T: PartialOrd + Debug> From<Vec<T>> for BinarySearchTree<T> {
-    fn from(vec: Vec<T>) -> Self {
-        let mut bst = BinarySearchTree::<T>::new();
-        for v in vec {
-            bst.insert(v);
-        }
-        bst
     }
 }
 
@@ -260,9 +262,6 @@ mod tests {
         bst.insert(17);
         bst.insert(900);
         bst.insert(800);
-        let v = io_traversal(&bst);
-        assert_eq!(vec![1, 4, 4, 5, 6, 8, 9, 17, 800, 900], v);
-        dbg!(v);
         assert_eq!(vec![1, 4, 4, 5, 6, 8, 9, 17, 800, 900], Vec::from(bst));
     }
 
