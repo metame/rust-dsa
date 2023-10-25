@@ -201,12 +201,15 @@ impl<T: PartialOrd> BinarySearchTree<T> {
         }
     }
 
+    /* This is O(log N) because we're calculating the first node to produce in the `iter` method
+     * If we wanted to make this more efficient, we could add `root` and `initial` fields
+     * to our BSTIterator and caclulate the first `current` in the first call of `next`
+     */
     pub fn iter<'a>(&'a self) -> BSTIterator<'a, T> {
         let mut stack = Vec::new();
         let current = self.root.as_ref().map(|n| n.leftmost(&mut stack));
         BSTIterator {
             stack,
-            root: self.root.as_ref(),
             current,
         }
     }
@@ -214,7 +217,6 @@ impl<T: PartialOrd> BinarySearchTree<T> {
 
 pub struct BSTIterator<'a, T> {
     stack: Vec<&'a Node<T>>,
-    root: Option<&'a Box<Node<T>>>,
     current: Option<&'a Node<T>>,
 }
 
