@@ -9,7 +9,7 @@ use std::fmt::Debug;
  * search, insertion & removal: O(log N)
  * Vec: input & output, impl From<Vec<T>>, Into<Vec<T>>,
 */
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct BinarySearchTree<T> {
     root: Option<Box<Node<T>>>,
 }
@@ -19,6 +19,31 @@ struct Node<T> {
     value: T,
     left: Option<Box<Node<T>>>,
     right: Option<Box<Node<T>>>,
+}
+
+/*
+Debug:
+R
+--L
+----LL
+----LR
+--R
+----RL
+----RR
+*/
+impl<T: Debug + PartialOrd> Debug for BinarySearchTree<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // keep track of what level we're at
+        // print `--` * level
+        let mut level = 0;
+        // need to keep track of level within traverse so general traverse doesn't work
+        self.preorder_traverse(&mut |v| {
+            let r = write!(f, "\n{:->level$}{v:?}", "");
+            level += 1;
+            r
+        });
+        Ok(())
+    }
 }
 
 impl<T: PartialOrd> Node<T> {
@@ -152,6 +177,19 @@ impl<T: PartialOrd> Node<T> {
         }
     }
 
+    fn preorder_traverse<F, K>(&self, f: &mut F)
+    where F: FnMut(&T) -> K,
+    {
+        f(&self.value);
+
+        if let Some(l) = self.left.as_ref() {
+            l.preorder_traverse(f);
+        }
+
+        if let Some(r) = self.right.as_ref() {
+            r.preorder_traverse(f);
+        }
+    }
 }
 
 impl<T: PartialOrd> BinarySearchTree<T> {
@@ -193,11 +231,19 @@ impl<T: PartialOrd> BinarySearchTree<T> {
     }
 
     /// In order traversal applying `f` to each `T` consuming `self`
-    pub fn traverse<F>(mut self, f: &mut F)
+    fn traverse<F>(mut self, f: &mut F)
     where F: FnMut(T),
     {
         if let Some(n) = self.root.take() {
             n.traverse(f);
+        }
+    }
+
+    fn preorder_traverse<F, K>(&self, f: &mut F)
+    where F: FnMut(&T) -> K,
+    {
+        if let Some(n) = self.root.as_ref() {
+            n.preorder_traverse(f);
         }
     }
 
