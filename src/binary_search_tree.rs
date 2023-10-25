@@ -56,7 +56,7 @@ impl<T: PartialOrd> Node<T> {
         }
     }
 
-    // bad name, not waht it does really
+    /// bad name, not what it does really
     fn recur_right(&mut self) -> Option<Box<Self>> {
         if let Some(n) = &mut self.right {
             if n.right.is_some() {
@@ -66,6 +66,15 @@ impl<T: PartialOrd> Node<T> {
             }
         } else {
             None
+        }
+    }
+
+    fn leftmost<'a>(&'a self, stack: &mut Vec<&'a Node<T>>) -> &Self {
+        if let Some(n) = &self.left {
+            stack.push(self);
+            n.leftmost(stack)
+        } else {
+            self
         }
     }
 
@@ -193,10 +202,37 @@ impl<T: PartialOrd> BinarySearchTree<T> {
     }
 
     pub fn iter<'a>(&'a self) -> BSTIterator<'a, T> {
+        let mut stack = Vec::new();
+        let current = self.root.as_ref().map(|n| n.leftmost(&mut stack));
         BSTIterator {
-            stack: Vec::new(),
-            root: self.root.as_ref().and_then(|n| Some(n)),
-            current: None,
+            stack,
+            root: self.root.as_ref(),
+            current,
+        }
+    }
+}
+
+pub struct BSTIterator<'a, T> {
+    stack: Vec<&'a Node<T>>,
+    root: Option<&'a Box<Node<T>>>,
+    current: Option<&'a Node<T>>,
+}
+
+impl<'a, T: PartialOrd> Iterator for BSTIterator<'a, T> {
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(n) = self.current {
+            let v = &n.value;
+            // check if right, then right.leftmost, else right
+            if let Some(r) = n.right.as_ref() {
+                self.current = Some(r.leftmost(&mut self.stack));
+            } else {
+                // go up stack
+                self.current = self.stack.pop();
+            }
+            Some(v)
+        } else {
+            None
         }
     }
 }
@@ -219,30 +255,29 @@ impl<T: PartialOrd + Debug> From<Vec<T>> for BinarySearchTree<T> {
     }
 }
 
-// BST Iterator:
-// reference to root
-// reference to our current node
-// reference to the parents of current
-pub struct BSTIterator<'a, T> {
-    stack: Vec<Box<Node<T>>>,
-    root: Option<&'a Box<Node<T>>>,
-    current: Option<&'a Box<Node<T>>>,
-}
-
-impl<'a, T> Iterator for BSTIterator<'a, T> {
-    type Item = T;
-    fn next(&mut self) -> Option<Self::Item> {
-        if root.is_none() {
-            None
-        } else {
-            None
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn iterator_works() {
+        let mut bst = BinarySearchTree::<usize>::new();
+        bst.insert(9);
+        bst.insert(5);
+        bst.insert(4);
+        bst.insert(1);
+        bst.insert(4);
+        bst.insert(6);
+        bst.insert(8);
+        bst.insert(17);
+        bst.insert(900);
+        bst.insert(800);
+        let v: Vec<&usize> = bst.iter().collect();
+        dbg!(&bst);
+        let expected = vec![1, 4, 4, 5, 6, 8, 9, 17, 800, 900];
+        let expected: Vec<&usize> = expected.iter().collect();
+        assert_eq!(expected, v);
+    }
 
     #[test]
     fn traverse_works() {
