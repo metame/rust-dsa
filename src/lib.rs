@@ -2,6 +2,7 @@ pub mod array_list;
 pub mod binary_search_tree;
 pub mod doubly_linked_list;
 pub mod linked_list;
+pub mod priority_queue;
 pub mod queue;
 pub mod ring_buffer;
 pub mod stack;
